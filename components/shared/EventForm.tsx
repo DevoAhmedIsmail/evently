@@ -20,27 +20,36 @@ import { Textarea } from "../ui/textarea";
 import { FileUploader } from "./FileUploader";
 import { useState } from "react";
 import Image from "next/image";
-import {useUploadThing} from "@/lib/uploadthing";
+import { useUploadThing } from "@/lib/uploadthing";
 import DatePicker from "react-datepicker";
 
 import "react-datepicker/dist/react-datepicker.css";
 import { Checkbox } from "../ui/checkbox";
 import { handleError } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { createEvent } from "@/lib/actions/event.actions";
+import { createEvent, updateEvent } from "@/lib/actions/event.actions";
+import { IEvent } from "@/lib/database/models/event.model";
 
 type EventFormProps = {
   userId: string;
   type: "Create" | "Update";
+  event?: IEvent;
+  eventId?: string;
 };
 
-const EventForm = ({ userId, type }: EventFormProps) => {
+const EventForm = ({ userId, type, event, eventId }: EventFormProps) => {
   const [files, setFiles] = useState<File[]>([]);
-  const initialValues = eventDefaultValues;
+  const initialValues = event && type === "Update" ? {
+    ...event,
+    startDateTime: new Date(event.startDateTime),
+    endDateTime: new Date(event.endDateTime),
+    categoryId: event.category._id
 
-  const router = useRouter() 
+  } : eventDefaultValues;
 
-  const {startUpload} = useUploadThing('imageUploader')
+  const router = useRouter();
+
+  const { startUpload } = useUploadThing("imageUploader");
 
   const form = useForm<z.infer<typeof eventFormSchema>>({
     resolver: zodResolver(eventFormSchema),
@@ -49,33 +58,56 @@ const EventForm = ({ userId, type }: EventFormProps) => {
 
   // 2. Define a submit handler.
   async function onSubmit(values: z.infer<typeof eventFormSchema>) {
-
     let uploadedImageUrl = values.imageUrl;
 
-    if(files.length > 0) {
-      const uploadedImages = await startUpload(files) 
+    if (files.length > 0) {
+      const uploadedImages = await startUpload(files);
 
-      if(!uploadedImages) {
-        return
+      if (!uploadedImages) {
+        return;
       }
 
-      uploadedImageUrl = uploadedImages[0].url
+      uploadedImageUrl = uploadedImages[0].url;
     }
 
-    if(type === 'Create') {
+    if (type === "Create") {
       try {
         const newEvent = await createEvent({
-          event: {...values, imageUrl: uploadedImageUrl},
+          event: { ...values, imageUrl: uploadedImageUrl },
           userId,
-          path: "/profile"
-        })
+          path: "/profile",
+        });
 
-        if(newEvent) {
-          form.reset()
-          router.push(`/events/${newEvent._id}`)
+        if (newEvent) {
+          form.reset();
+          router.push(`/events/${newEvent._id}`);
         }
       } catch (error) {
         // handleError(error)
+        console.log(error);
+      }
+    }
+
+    if(type === "Update") {
+      if(!eventId) {
+        router.back()
+        return;
+      }
+
+      const updatedEvent = await updateEvent({
+        userId,
+        event: { ...values, imageUrl: uploadedImageUrl, _id: eventId},
+        path: `/events/${eventId}`,
+      });
+
+      if (updatedEvent) {
+        form.reset();
+        router.push(`/events/${updatedEvent._id}`);
+      }
+
+      try {
+
+      } catch(error) {
         console.log(error)
       }
     }

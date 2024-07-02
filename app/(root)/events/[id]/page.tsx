@@ -9,6 +9,7 @@ import React from "react";
 
 const EventDetails = async ({ params: { id }, searchParams }: SearchParamProps) => {
   const event = (await getEventById(id)) as IEvent;
+  const page = Number(searchParams.page) || 1;
 
   const relatedEvents = await getRelatedEventsByCategory({
     categoryId: event.category._id,
@@ -106,8 +107,8 @@ const EventDetails = async ({ params: { id }, searchParams }: SearchParamProps) 
           emptyStateSubtext="Come back later"
           collectionType="All_Events"
           limit={6}
-          page={1}
-          totalPages={2}
+          page={page}
+          totalPages={relatedEvents?.totalPages}
         />
       </section>
     </>
